@@ -12,3 +12,5 @@ export class ConflictError extends AppError {}
 export class ValidationError extends AppError {}
 
 export class UnprocessableError extends AppError {}
+
+export class UnauthorizedError extends AppError {}

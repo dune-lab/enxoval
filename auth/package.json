@@ -1,7 +1,7 @@
 {
-  "name": "@enxoval/http",
-  "version": "1.0.2",
-  "description": "Fastify wrapper exposing get, post, html, listen and inject helpers",
+  "name": "@enxoval/auth",
+  "version": "1.0.0",
+  "description": "JWT auth middleware for Fastify services: setupAuth and getCurrentUser",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -12,17 +12,19 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [
+    "auth",
+    "jwt",
     "fastify",
-    "http",
     "typescript"
   ],
   "license": "MIT",
   "dependencies": {
-    "fastify": "^5.8.5",
-    "@enxoval/observability": "^1.0.0",
-    "@enxoval/types": "^1.0.0"
+    "@enxoval/http": "file:../http",
+    "@enxoval/types": "file:../types",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.9",
     "typescript": "^5.7.2"
   }
 }

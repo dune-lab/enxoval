@@ -1,4 +1,4 @@
-import Fastify, { type LightMyRequestResponse } from 'fastify';
+import Fastify, { type FastifyRequest, type FastifyReply, type HookHandlerDoneFunction, type LightMyRequestResponse } from 'fastify';
 import { logger } from '@enxoval/observability';
 import { AppError } from '@enxoval/types';
 import { newCid, nextCid } from '@enxoval/observability';
@@ -26,6 +26,7 @@ const HTTP_STATUS: Record<string, number> = {
   ConflictError: 409,
   ValidationError: 400,
   UnprocessableError: 422,
+  UnauthorizedError: 401,
 };
 
 app.setErrorHandler((error, request, reply) => {
@@ -86,6 +87,16 @@ export async function listen(port: number, host: string): Promise<void> {
 
 export async function close(): Promise<void> {
   await app.close();
+}
+
+export function postOk<TBody>(path: string, handler: Handler<TBody>): void {
+  app.post<{ Body: TBody }>(path, async (request, reply) => {
+    reply.status(200).send(await handler(request.body as TBody));
+  });
+}
+
+export function addPreHandler(fn: (request: FastifyRequest, reply: FastifyReply, done: HookHandlerDoneFunction) => void): void {
+  app.addHook('preHandler', fn);
 }
 
 export async function inject(options: {

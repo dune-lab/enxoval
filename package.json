@@ -10,10 +10,11 @@
     "observability",
     "docker",
     "testing",
-    "quality"
+    "quality",
+    "auth"
   ],
   "scripts": {
-    "build": "npm run build -w types -w observability -w db -w http -w messaging -w testing -w quality",
+    "build": "npm run build -w types -w observability -w db -w http -w messaging -w testing -w quality -w auth",
     "publish:all": "npm run build && npm publish --workspaces --access public"
   }
 }

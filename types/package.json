@@ -1,6 +1,6 @@
 {
   "name": "@enxoval/types",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Runtime validation schemas, fn/asyncFn wrappers and branded UUID type",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
