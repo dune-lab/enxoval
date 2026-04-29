@@ -15,13 +15,13 @@ export async function disconnect(): Promise<void> {
   logger.info('producer: disconnected');
 }
 
-export async function publish<T extends { cid?: string; eventId?: string; journeyId?: string }>(
+export async function publish<T extends Record<string, unknown>>(
   name: string,
   message: T,
 ): Promise<void> {
   const topic = getKafkaTopic(name);
-  const cid = message.cid ? nextCid(message.cid) : undefined;
-  logger.info({ cid, topic, name, eventId: message.eventId }, 'producer: message published');
+  const cid = message['cid'] ? nextCid(message['cid'] as string) : undefined;
+  logger.info({ cid, topic, name, eventId: message['eventId'] }, 'producer: message published');
   await producer.send({
     topic,
     messages: [{ value: JSON.stringify({ ...message, cid }) }],

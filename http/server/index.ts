@@ -55,6 +55,10 @@ export function getWith<TParams>(path: string, handler: (params: TParams) => Pro
   app.get<{ Params: TParams }>(path, async (request) => handler(request.params as TParams));
 }
 
+export function getWithAuth(path: string, handler: (authorization: string | undefined) => Promise<unknown>): void {
+  app.get(path, async (request) => handler(request.headers['authorization'] as string | undefined));
+}
+
 export function html(path: string, handler: () => Promise<string>): void {
   app.get(path, async (_request, reply) => {
     reply.type('text/html; charset=utf-8').send(await handler());

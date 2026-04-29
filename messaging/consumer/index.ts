@@ -23,7 +23,7 @@ async function withRetry(fn: () => Promise<void>, attemptsLeft: number, delayMs:
   }
 }
 
-export function subscribe<T extends { cid?: string; eventId?: string; journeyId?: string }>(
+export function subscribe<T extends Record<string, unknown>>(
   name: string,
   handler: MessageHandler<T>,
 ): void {
