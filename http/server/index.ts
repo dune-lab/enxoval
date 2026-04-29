@@ -51,6 +51,10 @@ export function get(path: string, handler: () => Promise<unknown>): void {
   app.get(path, async () => handler());
 }
 
+export function getWith<TParams>(path: string, handler: (params: TParams) => Promise<unknown>): void {
+  app.get<{ Params: TParams }>(path, async (request) => handler(request.params as TParams));
+}
+
 export function html(path: string, handler: () => Promise<string>): void {
   app.get(path, async (_request, reply) => {
     reply.type('text/html; charset=utf-8').send(await handler());

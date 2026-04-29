@@ -1,4 +1,4 @@
-import { verify, sign } from 'jsonwebtoken';
+import { verify, sign, decode } from 'jsonwebtoken';
 import { addPreHandler } from '@enxoval/http';
 import { UnauthorizedError } from '@enxoval/types';
 import { store } from './context';
@@ -12,6 +12,16 @@ export function signToken(userId: string, role: string): string {
     process.env.JWT_SECRET!,
     { expiresIn: (process.env.JWT_EXPIRES_IN ?? '1h') as `${number}${'s' | 'm' | 'h' | 'd'}` },
   );
+}
+
+export function decodeToken(token: string): { userId: string; role: string } | null {
+  try {
+    const payload = decode(token) as { userId?: string; role?: string } | null;
+    if (!payload?.userId || !payload?.role) return null;
+    return { userId: payload.userId, role: payload.role };
+  } catch {
+    return null;
+  }
 }
 
 export function setupAuth(options?: { exclude?: string[] }): void {
