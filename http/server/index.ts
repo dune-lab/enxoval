@@ -1,4 +1,6 @@
 import Fastify, { type FastifyRequest, type FastifyReply, type HookHandlerDoneFunction, type LightMyRequestResponse } from 'fastify';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { logger } from '@enxoval/observability';
 import { AppError } from '@enxoval/types';
 import { newCid, nextCid } from '@enxoval/observability';
@@ -89,7 +91,13 @@ export function del(path: string, handler: () => Promise<unknown>): void {
   });
 }
 
-export async function listen(port: number, host: string): Promise<void> {
+app.get('/contracts', async () => {
+  const contractsPath = resolve(process.cwd(), 'dist', 'contracts.json');
+  return JSON.parse(readFileSync(contractsPath, 'utf-8'));
+});
+
+export async function listen(port: number, host: string, setup?: () => Promise<void>): Promise<void> {
+  if (!process.env.CI && setup) await setup();
   await app.listen({ port, host });
 }
 
