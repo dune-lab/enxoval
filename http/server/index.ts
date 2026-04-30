@@ -1,4 +1,5 @@
 import Fastify, { type FastifyRequest, type FastifyReply, type HookHandlerDoneFunction, type LightMyRequestResponse } from 'fastify';
+import cors from '@fastify/cors';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { logger } from '@enxoval/observability';
@@ -6,6 +7,8 @@ import { AppError } from '@enxoval/types';
 import { newCid, nextCid } from '@enxoval/observability';
 
 const app = Fastify({ logger: false });
+
+app.register(cors, { origin: true });
 
 app.decorateRequest('cid', '');
 
