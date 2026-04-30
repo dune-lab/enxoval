@@ -61,6 +61,18 @@ function toWireOutName(wireInName: string): string {
   return wireInName.replace(/WireIn$/, 'WireOut');
 }
 
+function formatDescriptor(d: FieldDescriptor): string {
+  if (d.type === 'literal' && 'values' in d) return d.values.map((v: string) => `"${v}"`).join(' | ');
+  return d.type;
+}
+
+function formatContract(fields: Record<string, FieldDescriptor>): string {
+  const entries = Object.entries(fields)
+    .map(([k, v]) => `${k}: ${formatDescriptor(v)}`)
+    .join(', ');
+  return `{ ${entries} }`;
+}
+
 function validate(
   localContracts: Contracts,
   partnerContracts: Contracts,
@@ -74,16 +86,20 @@ function validate(
 
     if (!partnerOut) continue;
 
-    console.log(`kanly: validating ${outName} on ${partnerName}`);
+    console.log(`\nkanly: validating ${outName} on ${partnerName}`);
+    console.log(`  consumer: ${formatContract(fields)}`);
+    console.log(`  producer: ${formatContract(partnerOut)}`);
 
     for (const [field, descriptor] of Object.entries(fields)) {
       if (!(field in partnerOut)) {
-        errors.push(`[${partnerName}] ${outName}.${field} missing (required by ${name})`);
+        errors.push(
+          `[${partnerName}] ${outName}.${field} — field missing in producer (consumer expects ${formatDescriptor(descriptor)})`,
+        );
         continue;
       }
       if (partnerOut[field].type !== descriptor.type) {
         errors.push(
-          `[${partnerName}] ${outName}.${field} type mismatch: producer="${partnerOut[field].type}" consumer="${descriptor.type}"`,
+          `[${partnerName}] ${outName}.${field} — type mismatch: consumer expects "${formatDescriptor(descriptor)}", producer sends "${formatDescriptor(partnerOut[field])}"`,
         );
       }
     }
