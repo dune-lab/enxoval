@@ -1,20 +1,19 @@
 import { kafka } from './kafka';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-interface KafkaTopicEntry {
-  topic: string;
+interface ServiceConfig {
+  kafka_topics?: Record<string, { topic: string }>;
+  feature_flags?: Record<string, boolean>;
 }
-
-interface TopicsFile {
-  kafka_topics: Record<string, KafkaTopicEntry>;
-}
-
-const { kafka_topics }: TopicsFile = JSON.parse(
-  readFileSync(resolve(process.cwd(), 'student-journey.json'), 'utf-8'),
-);
 
 export async function ensureTopics(): Promise<void> {
+  const configPath = resolve(process.cwd(), 'config.json');
+  if (!existsSync(configPath)) return;
+
+  const config: ServiceConfig = JSON.parse(readFileSync(configPath, 'utf-8'));
+  const kafka_topics = config.kafka_topics ?? {};
+
   const admin = kafka.admin();
   await admin.connect();
 

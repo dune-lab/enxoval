@@ -17,7 +17,7 @@ type InferFields<F extends Record<string, FieldParser<unknown>>> = {
 
 export type Schema<T> = {
   parse(data: unknown): T;
-  describe(): Record<string, FieldDescriptor>;
+  describe?(): Record<string, FieldDescriptor>;
 };
 
 function makeParser<T>(fn: (value: unknown, field: string) => T, type: string, values?: string[]): FieldParser<T> {
