@@ -6,9 +6,25 @@ type FieldDescriptor =
   | { type: string }
   | { type: 'literal'; values: string[] };
 
+type WireMeta = {
+  path?: string;
+  method?: string;
+  topic?: string;
+};
+
+type WireFields = {
+  _meta?: WireMeta;
+  [field: string]: FieldDescriptor | WireMeta | undefined;
+};
+
+function getFields(wire: WireFields): Record<string, FieldDescriptor> {
+  const { _meta: _ignored, ...rest } = wire;
+  return rest as Record<string, FieldDescriptor>;
+}
+
 type Contracts = {
-  wire_in: Record<string, Record<string, FieldDescriptor>>;
-  wire_out: Record<string, Record<string, FieldDescriptor>>;
+  wire_in: Record<string, WireFields>;
+  wire_out: Record<string, WireFields>;
 };
 
 const cwd = process.cwd();
@@ -66,17 +82,33 @@ function formatDescriptor(d: FieldDescriptor): string {
   return d.type;
 }
 
-function formatContract(fields: Record<string, FieldDescriptor>): string {
+function formatContract(fields: WireFields): string {
   const entries = Object.entries(fields)
-    .map(([k, v]) => `${k}: ${formatDescriptor(v)}`)
+    .filter(([k]) => k !== '_meta')
+    .map(([k, v]) => `${k}: ${formatDescriptor(v as FieldDescriptor)}`)
     .join(', ');
   return `{ ${entries} }`;
+}
+
+function formatMeta(meta?: WireMeta): string {
+  if (!meta) return '';
+  if (meta.topic) return ` [topic: ${meta.topic}]`;
+  if (meta.path) return ` [${meta.method ?? 'HTTP'} ${meta.path}]`;
+  return '';
+}
+
+function loadServiceName(): string {
+  const pkgPath = resolve(cwd, 'package.json');
+  if (!existsSync(pkgPath)) return 'unknown';
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { name?: string };
+  return pkg.name ?? 'unknown';
 }
 
 function validate(
   localContracts: Contracts,
   partnerContracts: Contracts,
-  partnerName: string,
+  consumerName: string,
+  producerName: string,
 ): string[] {
   const errors: string[] = [];
 
@@ -86,20 +118,26 @@ function validate(
 
     if (!partnerOut) continue;
 
-    console.log(`\nkanly: validating ${outName} on ${partnerName}`);
-    console.log(`  consumer: ${formatContract(fields)}`);
-    console.log(`  producer: ${formatContract(partnerOut)}`);
+    const meta = fields._meta ?? partnerOut._meta;
+    const metaLabel = formatMeta(meta as WireMeta | undefined);
+    const consumerFields = getFields(fields);
+    const producerFields = getFields(partnerOut);
 
-    for (const [field, descriptor] of Object.entries(fields)) {
-      if (!(field in partnerOut)) {
+    console.log(`\nkanly: validating ${outName}${metaLabel}`);
+    console.log(`  consumer (${consumerName}): ${formatContract(fields)}`);
+    console.log(`  producer (${producerName}): ${formatContract(partnerOut)}`);
+
+    for (const [field, descriptor] of Object.entries(consumerFields)) {
+      if (!(field in producerFields)) {
         errors.push(
-          `[${partnerName}] ${outName}.${field} — field missing in producer (consumer expects ${formatDescriptor(descriptor)})`,
+          `[${producerName} → ${consumerName}]${metaLabel} ${outName}.${field} — field missing in producer (${consumerName} expects ${formatDescriptor(descriptor)})`,
         );
         continue;
       }
-      if (partnerOut[field].type !== descriptor.type) {
+      const producerField = producerFields[field];
+      if (producerField.type !== descriptor.type) {
         errors.push(
-          `[${partnerName}] ${outName}.${field} — type mismatch: consumer expects "${formatDescriptor(descriptor)}", producer sends "${formatDescriptor(partnerOut[field])}"`,
+          `[${producerName} → ${consumerName}]${metaLabel} ${outName}.${field} — ${producerName} sends "${formatDescriptor(producerField)}", ${consumerName} expects "${formatDescriptor(descriptor)}"`,
         );
       }
     }
@@ -115,6 +153,7 @@ async function run(): Promise<void> {
     process.exit(0);
   }
 
+  const serviceName = loadServiceName();
   const local = loadLocalContracts();
   const httpPartners = discoverHttpPartners();
   const kafkaTopics = discoverKafkaTopics();
@@ -130,7 +169,7 @@ async function run(): Promise<void> {
   if (kafkaTopics.length > 0) {
     console.log(`kanly: Kafka topics: [${kafkaTopics.join(', ')}]`);
     for (const topic of kafkaTopics) {
-      console.log(`kanly: validating topic ${topic}`);
+      console.log(`kanly: validating topic ${topic} on ${serviceName}`);
     }
   }
 
@@ -139,7 +178,7 @@ async function run(): Promise<void> {
   for (const partner of httpPartners) {
     const local_partner = loadLocalPartnerContracts(partner);
     if (local_partner) {
-      const errors = validate(local, local_partner, partner);
+      const errors = validate(local, local_partner, serviceName, partner);
       allErrors.push(...errors);
       continue;
     }
@@ -149,7 +188,7 @@ async function run(): Promise<void> {
       continue;
     }
     const partnerContracts = await fetchContracts(url);
-    const errors = validate(local, partnerContracts, partner);
+    const errors = validate(local, partnerContracts, serviceName, partner);
     allErrors.push(...errors);
   }
 
