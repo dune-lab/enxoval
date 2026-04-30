@@ -1,6 +1,6 @@
 {
   "name": "@enxoval/messaging",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "KafkaJS wrapper exposing publish, subscribe and ensureTopics",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
