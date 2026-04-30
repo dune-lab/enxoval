@@ -31,7 +31,7 @@ async function fetchContracts(url: string): Promise<Contracts> {
 
 function loadLocalPartnerContracts(partner: string): Contracts | null {
   if (!localDir) return null;
-  const path = join(localDir, partner, 'dist', 'contracts.json');
+  const path = join(localDir, partner, 'contracts.json');
   if (!existsSync(path)) return null;
   return JSON.parse(readFileSync(path, 'utf-8')) as Contracts;
 }
