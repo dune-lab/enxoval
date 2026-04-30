@@ -1,6 +1,6 @@
 {
   "name": "@enxoval/auth",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "JWT auth middleware for Fastify services: setupAuth and getCurrentUser",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

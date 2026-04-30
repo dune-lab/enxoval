@@ -43,7 +43,7 @@ export function setupAuth(options?: { exclude?: string[] }): void {
     const token = authHeader.slice(7);
     try {
       const payload = verify(token, process.env.JWT_SECRET!) as { userId: string; role: string };
-      store.enterWith({ userId: payload.userId, role: payload.role });
+      store.enterWith({ userId: payload.userId, role: payload.role, token });
       done();
     } catch {
       done(new UnauthorizedError('Unauthorized'));
