@@ -41,3 +41,85 @@ jobs:
           done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  bump-services:
+    name: Bump @enxoval/* in services
+    needs: publish
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        repo: [atreides, odyssey, persona, janus, imperium]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: enxoval
+
+      - uses: actions/checkout@v4
+        with:
+          repository: dune-lab/${{ matrix.repo }}
+          token: ${{ secrets.DUNE_LAB_TOKEN }}
+          path: service
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Collect published @enxoval versions
+        id: versions
+        working-directory: enxoval
+        run: |
+          UPDATES=""
+          for workspace in $(npm query .workspace --json | jq -r '.[].location'); do
+            pkg=$(node -p "require('./$workspace/package.json').name")
+            ver=$(node -p "require('./$workspace/package.json').version")
+            published=$(npm view "$pkg@$ver" version 2>/dev/null || echo "")
+            if [ -n "$published" ]; then
+              UPDATES="$UPDATES $pkg@$ver"
+            fi
+          done
+          echo "updates=$UPDATES" >> $GITHUB_OUTPUT
+
+      - name: Update @enxoval/* in service
+        working-directory: service
+        run: |
+          UPDATES="${{ steps.versions.outputs.updates }}"
+          FILTERED=""
+          for pkg in $UPDATES; do
+            name=$(echo $pkg | cut -d@ -f1-2)
+            if node -e "const p=require('./package.json'); process.exit(p.dependencies?.['$name'] || p.devDependencies?.['$name'] ? 0 : 1)" 2>/dev/null; then
+              FILTERED="$FILTERED $pkg"
+            fi
+          done
+          [ -z "$FILTERED" ] && echo "No matching deps, skipping" && exit 0
+          npm install $FILTERED
+
+      - name: Open PR if changed
+        working-directory: service
+        run: |
+          git diff --quiet package.json package-lock.json && echo "No changes, skipping" && exit 0
+
+          BRANCH="chore/bump-enxoval-${{ github.ref_name }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b $BRANCH
+          git add package.json package-lock.json
+          git commit -m "chore: bump @enxoval/* packages — ${{ github.ref_name }}"
+          git push origin $BRANCH
+          gh pr create \
+            --repo dune-lab/${{ matrix.repo }} \
+            --head $BRANCH \
+            --base main \
+            --title "chore: bump @enxoval/* — ${{ github.ref_name }}" \
+            --body "$(cat <<'EOF'
+## Summary
+
+- Automated bump of @enxoval/* packages after release ${{ github.ref_name }}
+- Only packages already listed as dependencies were updated
+
+## Test plan
+
+- [ ] CI passes
+EOF
+)"
+        env:
+          GH_TOKEN: ${{ secrets.DUNE_LAB_TOKEN }}
