@@ -42,14 +42,37 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  bump-services:
-    name: Bump @enxoval/* in services
+  discover:
+    name: Discover services that use @enxoval/*
     needs: publish
+    runs-on: ubuntu-latest
+    outputs:
+      repos: ${{ steps.find.outputs.repos }}
+    steps:
+      - name: Find repos with @enxoval/* dependencies
+        id: find
+        env:
+          GH_TOKEN: ${{ secrets.DUNE_LAB_TOKEN }}
+        run: |
+          REPOS="[]"
+          for repo in $(gh repo list dune-lab --json name -q '.[].name' --limit 100); do
+            content=$(gh api repos/dune-lab/$repo/contents/package.json -q '.content' 2>/dev/null || echo "")
+            [ -z "$content" ] && continue
+            has_enxoval=$(echo "$content" | base64 -d 2>/dev/null | jq -e '(.dependencies // {}) + (.devDependencies // {}) | to_entries[] | select(.key | startswith("@enxoval/"))' 2>/dev/null)
+            [ -n "$has_enxoval" ] && REPOS=$(echo "$REPOS" | jq --arg r "$repo" '. + [$r]')
+          done
+          echo "repos=$REPOS" >> $GITHUB_OUTPUT
+          echo "Repos found: $REPOS"
+
+  bump:
+    name: Bump @enxoval/* in ${{ matrix.repo }}
+    needs: [publish, discover]
+    if: ${{ needs.discover.outputs.repos != '[]' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        repo: [atreides, odyssey, persona, janus, imperium]
+        repo: ${{ fromJson(needs.discover.outputs.repos) }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -63,7 +86,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Collect published @enxoval versions
         id: versions
