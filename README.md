@@ -17,35 +17,31 @@ Shared libraries for dune-lab Node.js microservices. Published to npm under the 
 
 ## @enxoval/types
 
-Runtime validation schemas with TypeScript types. Provides a `Schema` class that describes field types, validates input, and generates the `contracts.json` used by kanly.
+Runtime validation schemas with TypeScript types. Use `createSchema` to define a wire type — it validates input and auto-generates the `contracts.json` used by kanly.
 
 ```ts
-import { Schema, uuid, string, literal } from '@enxoval/types';
+import { createSchema, field } from '@enxoval/types';
 
-class CreateUserWireIn extends Schema {
-  id = uuid();
-  name = string();
-  role = literal('student', 'admin');
+const CreateUserWireIn = createSchema({
+  id: field.uuid(),
+  name: field.string(),
+  role: field.literal('student', 'admin'),
+});
 
-  static describe() {
-    return {
-      _meta: { method: 'POST', path: '/users' },
-      id: { type: 'uuid' },
-      name: { type: 'string' },
-      role: { type: 'literal', values: ['student', 'admin'] },
-    };
-  }
-}
+// parse and validate input
+const user = CreateUserWireIn.parse(req.body);
 ```
+
+Available field types: `field.uuid()`, `field.string()`, `field.number()`, `field.boolean()`, `field.date()`, `field.literal(...values)`.
 
 ---
 
 ## @enxoval/http
 
-Fastify wrapper that exposes `get`, `post`, `html`, `listen` and `inject` helpers. Also ships the `kanly` CLI for contract validation.
+Fastify wrapper that exposes route helpers and `listen`. Also ships the `kanly` CLI for contract validation.
 
 ```ts
-import { listen, get, post } from '@enxoval/http';
+import { get, post, listen } from '@enxoval/http';
 
 get('/health', async () => ({ ok: true }));
 post('/users', async (req) => createUser(req.body));
@@ -53,9 +49,11 @@ post('/users', async (req) => createUser(req.body));
 listen({ port: 3000 });
 ```
 
+Other exports: `getWith`, `getWithAuth`, `postOk`, `put`, `patch`, `del`, `html`, `inject`, `addPreHandler`.
+
 ### kanly CLI
 
-Validates wire contract compatibility between services. Runs automatically in CI — see [Contract Validation](#contract-validation).
+Validates wire contract compatibility between services. Runs automatically in CI.
 
 ```bash
 # validate against live services
@@ -69,14 +67,19 @@ KANLY_LOCAL_DIR=./partners npx kanly
 
 ## @enxoval/db
 
-TypeORM wrapper with a migration runner CLI. Handles connection setup, entity registration and exposes migration commands.
+TypeORM wrapper with Postgres support and a migration runner CLI.
 
 ```ts
-import { createDataSource } from '@enxoval/db';
+import { createDataSource, defineEntity, column } from '@enxoval/db';
 
 const dataSource = createDataSource({
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT),
+  username: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
   entities: [UserEntity],
-  migrations: [__dirname + '/migrations/*.js'],
+  migrationsDir: __dirname + '/migrations',
 });
 
 await dataSource.initialize();
@@ -94,21 +97,17 @@ npm run migration:revert
 
 ## @enxoval/messaging
 
-Kafka producer/consumer wrapper built on kafkajs. Reads topic configuration from `config.json` at runtime.
+Kafka producer/consumer wrapper. Resolves topic names from `config.json` at runtime, retries on failure and routes to a DLQ after max retries.
 
 ```ts
-import { producer, consumer, ensureTopics } from '@enxoval/messaging';
+import { publish, subscribe, connect, disconnect, ensureTopics } from '@enxoval/messaging';
 
 // produce
-await producer.send({ topic: 'userCreated', messages: [{ value: JSON.stringify(payload) }] });
+await publish('userCreated', { userId, email, role });
 
 // consume
-await consumer.subscribe({ topic: 'userCreated', fromBeginning: false });
-await consumer.run({
-  eachMessage: async ({ message }) => {
-    const payload = JSON.parse(message.value!.toString());
-    await handleUserCreated(payload);
-  },
+subscribe('userCreated', async (message) => {
+  await handleUserCreated(message);
 });
 
 // ensure topics exist on startup (reads config.json)
@@ -119,22 +118,22 @@ await ensureTopics();
 
 ## @enxoval/auth
 
-JWT HS256 middleware and helpers. Validates `Authorization: Bearer <token>` headers and exposes `sign` / `verify`.
+JWT HS256 middleware and helpers. Sets up auth on all routes and provides `signToken` and `getCurrentUser`.
 
 ```ts
-import { authMiddleware, sign, verify } from '@enxoval/auth';
+import { setupAuth, signToken, getCurrentUser } from '@enxoval/auth';
 
-// fastify middleware
-app.addHook('preHandler', authMiddleware);
+// setup middleware (call once at startup, before listen)
+setupAuth({ exclude: ['/health', '/auth/login'] });
 
 // sign a token
-const token = sign({ userId: 'uuid', role: 'student' });
+const token = signToken(userId, role);
 
-// verify
-const payload = verify(token); // throws if invalid
+// read current user inside a request handler
+const user = getCurrentUser(); // { userId, role }
 ```
 
-Requires `JWT_SECRET` in environment. Token payload is available as `req.user` after the middleware.
+Requires `JWT_SECRET` in environment. `JWT_EXPIRES_IN` is optional (default: `1h`).
 
 ---
 
@@ -171,19 +170,6 @@ The `publish` workflow:
 
 ## Contract Validation
 
-Each service exposes `wire/in` and `wire/out` schemas that describe the shape of data it consumes and produces. After every build, `contracts.json` is generated and published to [dune-lab/contracts](https://github.com/dune-lab/contracts).
+Each service exposes `wire/in` and `wire/out` schemas built with `createSchema`. After every build, `contracts.json` is generated automatically via the `postbuild` script and published to [dune-lab/contracts](https://github.com/dune-lab/contracts).
 
-To add path/topic metadata to a wire type:
-
-```ts
-static describe() {
-  return {
-    _meta: { method: 'POST', path: '/users' },
-    // or for Kafka:
-    _meta: { topic: 'USER_CREATED' },
-    id: { type: 'uuid' },
-  };
-}
-```
-
-kanly uses this metadata in validation logs and error messages.
+kanly reads this registry on every PR and validates that each service's `wire_in` fields are compatible with the partner's `wire_out`.
