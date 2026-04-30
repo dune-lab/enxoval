@@ -74,6 +74,8 @@ function validate(
 
     if (!partnerOut) continue;
 
+    console.log(`kanly: validating ${outName} on ${partnerName}`);
+
     for (const [field, descriptor] of Object.entries(fields)) {
       if (!(field in partnerOut)) {
         errors.push(`[${partnerName}] ${outName}.${field} missing (required by ${name})`);
@@ -106,9 +108,14 @@ async function run(): Promise<void> {
     process.exit(0);
   }
 
-  console.log(`kanly: checking HTTP partners: [${httpPartners.join(', ')}]`);
+  if (httpPartners.length > 0) {
+    console.log(`kanly: HTTP partners: [${httpPartners.join(', ')}]`);
+  }
   if (kafkaTopics.length > 0) {
-    console.log(`kanly: checking Kafka topics: [${kafkaTopics.join(', ')}]`);
+    console.log(`kanly: Kafka topics: [${kafkaTopics.join(', ')}]`);
+    for (const topic of kafkaTopics) {
+      console.log(`kanly: validating topic ${topic}`);
+    }
   }
 
   const allErrors: string[] = [];
