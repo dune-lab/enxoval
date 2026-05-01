@@ -1,6 +1,6 @@
 {
   "name": "@enxoval/http",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "Fastify wrapper exposing get, post, html, listen and inject helpers",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
