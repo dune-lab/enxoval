@@ -1,6 +1,6 @@
 {
   "name": "@enxoval/quality",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "ESLint and Prettier config with Diplomat Architecture boundary rules",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
