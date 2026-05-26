@@ -1,0 +1,16 @@
+{
+  "name": "@enxoval/notify",
+  "version": "1.0.0",
+  "description": "NotifyProvider contract and NotifyPayload type for hermes",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
