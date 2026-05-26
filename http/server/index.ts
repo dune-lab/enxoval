@@ -137,6 +137,17 @@ export function getWith<TParams>(path: string, handler: (params: TParams) => Pro
 }
 
 /**
+ * Registers a GET route with typed query string params and tracks it in registeredRoutes.
+ * @param path - The URL path (e.g. '/notifications')
+ * @param handler - Async function receiving typed query params and returning the response body
+ * @param contract - Input/output schema metadata for this route
+ */
+export function getWithQuery<TQuery>(path: string, handler: (query: TQuery) => Promise<unknown>, contract: ContractArg): void {
+  registeredRoutes.push({ method: 'GET', path, contract: { in: storeContract(contract.in), out: storeContract(contract.out) } });
+  app.get<{ Querystring: TQuery }>(path, async (request) => handler(request.query as TQuery));
+}
+
+/**
  * Registers a GET route that receives the Authorization header and tracks it in registeredRoutes.
  * @param path - The URL path
  * @param handler - Async function receiving the authorization string and returning the response body
